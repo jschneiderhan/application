@@ -111,10 +111,43 @@ class Chef
         end
       end
 
+      def find_tagged_server(tag, single=true, &block)
+        return nil if !tag
+        nodes = []
+        if node['tags'].include? tag
+          nodes << node
+        end
+        if !single || nodes.empty?
+          search(:node, "tags:#{tag} AND chef_environment:#{node.chef_environment}") do |n|
+            nodes << n
+          end
+        end
+        if block
+          nodes.each do |n|
+            yield n
+          end
+        else
+          if single
+            nodes.first
+          else
+            nodes
+          end
+        end
+      end
+
+      def find_tagged_server(tag)
+        dbm = find_tagged(tag)
+        Chef::Log.warn("No node with tag #{tag}") if tag && !dbm
+        obtain_host_string(dbm)
+      end
+
       def find_database_server(role)
         dbm = find_matching_role(role)
         Chef::Log.warn("No node with role #{role}") if role && !dbm
+        obtain_host_string(dbm)
+      end
 
+      def obtain_host_string(node)
         if respond_to?(:database) && database.has_key?('host')
           database['host']
         elsif dbm && dbm.attribute?('cloud')
